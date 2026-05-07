@@ -377,7 +377,6 @@ describe("ConsoleService", () => {
   });
 
   it("get_preferred_runtime should error without languageId", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await service.getPreferredRuntime({} as any);
     const parsed = JSON.parse(result);
     expect(parsed.error).toContain("languageId is required");
@@ -399,7 +398,6 @@ describe("ConsoleService", () => {
   });
 
   it("create_connection should error without driverId", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await service.createConnection({ inputs: [] } as any);
     const parsed = JSON.parse(result);
     expect(parsed.error).toContain("driverId is required");
@@ -478,7 +476,6 @@ describe("ConsoleService", () => {
   });
 
   it("open_viewer should error without url", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await service.openViewer({} as any);
     const parsed = JSON.parse(result);
     expect(parsed.error).toContain("URL is required");

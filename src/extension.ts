@@ -14,7 +14,6 @@ import { McpConsoleServer } from "./server";
  * If VS Code extension API ever provides a blessed `context.extensionVersion` we
  * can remove this cast.
  */
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const EXTENSION_VERSION = require("../package.json").version as string;
 
 let mcpServer: McpConsoleServer | null = null;
