@@ -1,4 +1,4 @@
-# Positron Console MCP
+# Positron Console MCP <img src="logo.png" alt="Extension image" width="140" align="right" style="margin: 0 1em 0 1em"/>
 
 MCP (Model Context Protocol) server that gives AI coding assistants first-class access to **Positron Console** — the interactive coding environment used by [Positron IDE](https://github.com/posit-dev/positron) for R, Python, and data science workflows.
 
