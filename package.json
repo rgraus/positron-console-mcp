@@ -2,9 +2,10 @@
   "name": "positron-console-mcp",
   "displayName": "Positron Console MCP",
   "description": "MCP server giving AI assistants control over Positron Consoles — run code, manage sessions, inspect variables, capture structured output",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "davidrsch",
   "repository": "https://github.com/davidrsch/positron-console-mcp",
+  "icon": "logo.png",
   "license": "MIT",
   "engines": {
     "vscode": "^1.100.0",
