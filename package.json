@@ -1,0 +1,83 @@
+{
+  "name": "positron-console-mcp",
+  "displayName": "Positron Console MCP",
+  "description": "MCP server giving AI assistants control over Positron Consoles — run code, manage sessions, inspect variables, capture structured output",
+  "version": "1.0.0",
+  "publisher": "davidrsch",
+  "repository": "https://github.com/davidrsch/positron-console-mcp",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0",
+    "positron": "^2025.6.0"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "positronConsoleMcp.showStatus",
+        "title": "Show Status",
+        "category": "Console MCP"
+      },
+      {
+        "command": "positronConsoleMcp.copyMcpConfig",
+        "title": "Copy MCP Configuration",
+        "category": "Console MCP"
+      },
+      {
+        "command": "positronConsoleMcp.addToMcpJson",
+        "title": "Add to .vscode/mcp.json",
+        "category": "Console MCP"
+      },
+      {
+        "command": "positronConsoleMcp.restart",
+        "title": "Restart Server",
+        "category": "Console MCP"
+      }
+    ],
+    "configuration": {
+      "title": "Positron Console MCP",
+      "properties": {
+        "positronConsoleMcp.port": {
+          "type": "number",
+          "default": 6071,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Port for the MCP server (default: 6071)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "node esbuild.js --production",
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package --no-dependencies",
+    "publish": "ovsx publish *.vsix --skip-duplicate"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@posit-dev/positron": "^0.1.6",
+    "express": "^4.21.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.100.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.0.0",
+    "ovsx": "^0.10.11",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}
