@@ -166,10 +166,10 @@ Add to your `.vscode/mcp.json` or user settings:
 ```json
 {
   "servers": {
-    "positron-console-automatization": {
+    "positron-console-mcp": {
       "type": "http",
       "url": "http://localhost:6071/mcp",
-      "serverName": "positron-console-automatization"
+      "serverName": "positron-console-mcp"
     }
   }
 }

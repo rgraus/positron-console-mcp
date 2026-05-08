@@ -239,6 +239,31 @@ describe("ConsoleService", () => {
     expect(parsed.error).toContain("out of range");
   });
 
+  it("focus_console by sessionId that doesn't exist should report error", async () => {
+    const api = mockApi();
+    api.runtime.getActiveSessions.mockResolvedValue([
+      { metadata: { sessionId: "sess-a" } },
+    ]);
+
+    const result = await service.focusConsole({ sessionId: "nonexistent" });
+    const parsed = JSON.parse(result);
+    expect(parsed.focused).toBe(false);
+    expect(parsed.error).toContain("not found");
+  });
+
+  it("focus_console should catch executeCode errors gracefully", async () => {
+    const api = mockApi();
+    api.runtime.getActiveSessions.mockResolvedValue([
+      { metadata: { sessionId: "sess-1", languageId: "python" } },
+    ]);
+    api.runtime.executeCode.mockRejectedValue(new Error("Focus failed"));
+
+    const result = await service.focusConsole({ sessionId: "sess-1" });
+    const parsed = JSON.parse(result);
+    expect(parsed.focused).toBe(false);
+    expect(parsed.error).toContain("Failed to focus session");
+  });
+
   // ─── execute_code ─────────────────────────────────────────────
 
   it("execute_code should reject empty code", async () => {
@@ -367,6 +392,28 @@ describe("ConsoleService", () => {
     expect(parsed.error).toContain("No active console session");
   });
 
+  it("get_session_variables should use explicit sessionId when provided", async () => {
+    const api = mockApi();
+    api.runtime.getSessionVariables.mockResolvedValue(["alpha", "beta"]);
+
+    const result = await service.getSessionVariables({ sessionId: "explicit-sess" });
+    const parsed = JSON.parse(result);
+    expect(parsed.sessionId).toBe("explicit-sess");
+    expect(parsed.variables).toEqual(["alpha", "beta"]);
+  });
+
+  it("get_session_variables should report error from API", async () => {
+    const api = mockApi();
+    api.runtime.getForegroundSession.mockResolvedValue({
+      metadata: { sessionId: "fg-session" },
+    });
+    api.runtime.getSessionVariables.mockRejectedValue(new Error("Session not found"));
+
+    const result = await service.getSessionVariables({});
+    const parsed = JSON.parse(result);
+    expect(parsed.error).toContain("Session not found");
+  });
+
   // ─── get_preferred_runtime ────────────────────────────────────
 
   it("get_preferred_runtime should return runtime info", async () => {
@@ -428,9 +475,7 @@ describe("ConsoleService", () => {
 
   it("set_environment_variable should unset a variable", async () => {
     const api = mockApi();
-    api.environment.getEnvironmentContributions.mockResolvedValue({
-      OLD_VAR: "remove-me",
-    });
+    api.environment.getEnvironmentContributions.mockResolvedValue({});
 
     const result = await service.setEnvironmentVariable({
       name: "OLD_VAR",
@@ -440,6 +485,45 @@ describe("ConsoleService", () => {
     const parsed = JSON.parse(result);
     expect(parsed.success).toBe(true);
     expect(parsed.action).toBe("unset");
+  });
+
+  it("set_environment_variable should append a variable", async () => {
+    const api = mockApi();
+    api.environment.getEnvironmentContributions.mockResolvedValue({});
+
+    const result = await service.setEnvironmentVariable({
+      name: "PATH",
+      value: "/usr/local/bin",
+      action: "append",
+    });
+    const parsed = JSON.parse(result);
+    expect(parsed.success).toBe(true);
+    expect(parsed.action).toBe("append");
+    expect(parsed.mutatorType).toBe("Append");
+  });
+
+  it("set_environment_variable should prepend a variable", async () => {
+    const api = mockApi();
+    api.environment.getEnvironmentContributions.mockResolvedValue({});
+
+    const result = await service.setEnvironmentVariable({
+      name: "PATH",
+      value: "/usr/bin",
+      action: "prepend",
+    });
+    const parsed = JSON.parse(result);
+    expect(parsed.success).toBe(true);
+    expect(parsed.action).toBe("prepend");
+    expect(parsed.mutatorType).toBe("Prepend");
+  });
+
+  it("set_environment_variable should error without name", async () => {
+    const result = await service.setEnvironmentVariable({
+      name: "",
+      value: "x",
+    } as any);
+    const parsed = JSON.parse(result);
+    expect(parsed.error).toContain("name is required");
   });
 
   // ─── get_editor_context ───────────────────────────────────────

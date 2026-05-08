@@ -63,7 +63,7 @@ describe("McpConsoleServer (HTTP integration)", () => {
       const res = await fetchJson("GET", "/health");
       expect(res.status).toBe(200);
       expect((res.body as Record<string, unknown>).status).toBe("ok");
-      expect((res.body as Record<string, unknown>).service).toBe("positron-console-automatization");
+      expect((res.body as Record<string, unknown>).service).toBe("positron-console-mcp");
     },
     10000
   );
@@ -107,12 +107,21 @@ describe("McpConsoleServer (HTTP integration)", () => {
 
   // ── CORS preflight ──────────────────────────────────────────────
   it(
-    "OPTIONS /mcp should return CORS headers",
+    "OPTIONS /mcp should return 204 with CORS headers for localhost origin",
     async () => {
-      const res = await fetchJson("OPTIONS", "/mcp");
+      // Send an Origin header that matches localhost to trigger CORS response
+      const url = `${baseUrl}/mcp`;
+      const res = await fetch(url, {
+        method: "OPTIONS",
+        headers: {
+          Host: new URL(baseUrl).host,
+          Origin: `http://localhost:${new URL(baseUrl).port}`,
+        },
+        signal: AbortSignal.timeout(5000),
+      });
       expect(res.status).toBe(204);
       const acao = res.headers.get("access-control-allow-origin") ?? "";
-      expect(acao).toBe("*");
+      expect(acao).toBe(`http://localhost:${new URL(baseUrl).port}`);
     },
     10000
   );

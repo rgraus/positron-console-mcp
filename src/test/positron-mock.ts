@@ -1,4 +1,6 @@
 import { vi } from "vitest";
+import { PositronAdapter } from "../positron-adapter";
+import type { PositronApi } from "@posit-dev/positron";
 
 /**
  * Creates a mock PositronApi object for use in unit tests.
@@ -45,4 +47,13 @@ export function createMockPositronApi() {
       registerHelpTopicProvider: vi.fn(),
     },
   };
+}
+
+/**
+ * Creates a PositronAdapter wrapping a mock PositronApi.
+ * Tests use this to get a typed adapter with mock methods.
+ */
+export function createMockAdapter(): PositronAdapter {
+  const mockApi = createMockPositronApi() as unknown as PositronApi;
+  return new PositronAdapter(mockApi);
 }

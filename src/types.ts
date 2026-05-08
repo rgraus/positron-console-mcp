@@ -106,7 +106,7 @@ export interface CreateConnectionArgs {
 export interface SetEnvironmentVariableArgs {
   name: string;
   value: string;
-  action?: "set" | "unset";
+  action?: "set" | "unset" | "append" | "prepend";
 }
 
 export interface OpenViewerArgs {
@@ -204,7 +204,7 @@ export const TOOL_DEFINITIONS = [
     description: "Register a database/data-source connection driver and connect.",
     inputSchema: {
       type: "object" as const,
-      required: ["driverId", "inputs"],
+      required: ["driverId"],
       properties: {
         driverId: { type: "string", description: "Connection driver ID" },
         languageId: { type: "string", description: "Language for connection code" },
@@ -234,14 +234,14 @@ export const TOOL_DEFINITIONS = [
   {
     name: "set_environment_variable",
     title: "Set Environment Variable",
-    description: "Contribute an environment variable to be set/unset in Positron session environments.",
+    description: "Contribute an environment variable to be set/unset/appended/prepended in Positron session environments.",
     inputSchema: {
       type: "object" as const,
       required: ["name", "value"],
       properties: {
         name: { type: "string", description: "Variable name" },
         value: { type: "string", description: "Variable value" },
-        action: { type: "string", enum: ["set", "unset"], description: "Action (default: set)" },
+        action: { type: "string", enum: ["set", "unset", "append", "prepend"], description: "Action (default: set)" },
       },
     },
   },

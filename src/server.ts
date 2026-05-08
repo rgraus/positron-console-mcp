@@ -9,6 +9,7 @@ import {
 import { ConsoleService } from "./console-service";
 import { TOOL_DEFINITIONS } from "./types";
 import { validateToolArgs } from "./validation";
+import { EXTENSION_VERSION } from "./version";
 
 // ─── Simple in-memory rate limiter ───────────────────────────────
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -102,8 +103,8 @@ export class McpConsoleServer {
   private async createMcpServer(): Promise<Server> {
     const server = new Server(
       {
-        name: "positron-console-automatization",
-        version: "0.1.0",
+        name: "positron-console-mcp",
+        version: EXTENSION_VERSION,
       },
       {
         capabilities: {
@@ -190,8 +191,8 @@ export class McpConsoleServer {
   private handleHealth(_req: Request, res: Response): void {
     res.json({
       status: "ok",
-      service: "positron-console-automatization",
-      version: "0.1.0",
+      service: "positron-console-mcp",
+      version: EXTENSION_VERSION,
       positronAvailable: this.consoleService.isAvailable(),
       positronStatus: this.consoleService.getStatus(),
     });
@@ -215,9 +216,15 @@ export class McpConsoleServer {
     this.app.use(express.json({ limit: "5mb" }));
 
 
-    // Enable CORS for localhost clients
-    this.app.use((_req, res, next) => {
-      res.header("Access-Control-Allow-Origin", "*");
+    // Enable CORS for localhost clients only
+    this.app.use((req, res, next) => {
+      const origin = req.headers.origin;
+      if (
+        origin &&
+        /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)
+      ) {
+        res.header("Access-Control-Allow-Origin", origin);
+      }
       res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
       res.header("Access-Control-Allow-Headers", "Content-Type, Accept");
       next();
@@ -232,8 +239,14 @@ export class McpConsoleServer {
     this.app.get("/mcp", (req, res) => this.handleMcpGet(req, res));
 
     // CORS preflight for /mcp
-    this.app.options("/mcp", (_req, res) => {
-      res.header("Access-Control-Allow-Origin", "*");
+    this.app.options("/mcp", (req, res) => {
+      const origin = req.headers.origin;
+      if (
+        origin &&
+        /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)
+      ) {
+        res.header("Access-Control-Allow-Origin", origin);
+      }
       res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
       res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id");
       res.status(204).end();

@@ -1,20 +1,7 @@
 import * as vscode from "vscode";
 import { tryAcquirePositronApi } from "@posit-dev/positron";
 import { McpConsoleServer } from "./server";
-
-/**
- * Extension version from package.json — kept in sync at build time by esbuild.
- *
- * We use `require` here because esbuild bundles `package.json` into the output
- * at build time. The `as string` cast is safe: `version` is always a string in
- * package.json per the npm spec. This approach avoids the dynamic `import` /
- * top-level await complexity in a synchronous non-module entry point.
- *
- * Tracked at: https://github.com/davidrsch/positron-console-mcp/issues (upstream)
- * If VS Code extension API ever provides a blessed `context.extensionVersion` we
- * can remove this cast.
- */
-const EXTENSION_VERSION = require("../package.json").version as string;
+import { EXTENSION_VERSION } from "./version";
 
 let mcpServer: McpConsoleServer | null = null;
 let statusBarItem: vscode.StatusBarItem | null = null;
@@ -105,10 +92,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const port = mcpServer.getPort();
       const config = {
         servers: {
-          "positron-console-automatization": {
+          "positron-console-mcp": {
             type: "http",
             url: `http://localhost:${port}/mcp`,
-            serverName: "positron-console-automatization",
+            serverName: "positron-console-mcp",
           },
         },
       };
@@ -130,7 +117,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       try {
         await vscode.commands.executeCommand(
           "workbench.action.addToMcpJson",
-          "positron-console-automatization",
+          "positron-console-mcp",
           "http",
           `http://localhost:${port}/mcp`
         );
@@ -138,10 +125,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         // Fallback: copy to clipboard
         const config = {
           servers: {
-            "positron-console-automatization": {
+            "positron-console-mcp": {
               type: "http",
               url: `http://localhost:${port}/mcp`,
-              serverName: "positron-console-automatization",
+              serverName: "positron-console-mcp",
             },
           },
         };

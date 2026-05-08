@@ -1,17 +1,16 @@
-import { tryAcquirePositronApi, PositronApi } from "@posit-dev/positron";
-import type {
-  ConsoleInfo,
-  ExecutionObserver,
-  ToolArgsMap,
-} from "./types";
+import { tryAcquirePositronApi } from "@posit-dev/positron";
+import type { ConsoleInfo, ExecutionObserver, ToolArgsMap } from "./types";
+import { PositronAdapter, EnvMutatorType, type EnvMutatorTypeValue } from "./positron-adapter";
 
 /**
  * Service that wraps the @posit-dev/positron API for use by the MCP server.
  * All methods check for Positron API availability and provide clear error messages
  * when running in standard VS Code (graceful degradation).
+ *
+ * Uses PositronAdapter to bridge type gaps in the @posit-dev/positron SDK.
  */
 export class ConsoleService {
-  private positron: PositronApi | null;
+  private adapter: PositronAdapter | null;
   private consoleWidth: number = 80;
   private statusMessage: string = "Positron API not available";
 
@@ -19,22 +18,18 @@ export class ConsoleService {
     // Try to acquire the Positron API — returns null if not running in Positron IDE.
     const api = tryAcquirePositronApi();
     if (api) {
-      this.positron = api;
+      this.adapter = new PositronAdapter(api);
       this.statusMessage = "Positron API connected";
       // Cache console width updates as they arrive
       try {
-        // onDidChangeConsoleWidth is available at runtime but not in SDK types
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (this.positron.window as any).onDidChangeConsoleWidth?.(
-          (width: number) => {
-            this.consoleWidth = width;
-          }
-        );
+        this.adapter.onDidChangeConsoleWidth?.((width: number) => {
+          this.consoleWidth = width;
+        });
       } catch {
         // onDidChangeConsoleWidth may not be available in older Positron versions
       }
     } else {
-      this.positron = null;
+      this.adapter = null;
       this.statusMessage =
         "Positron API not available — running in standard VS Code";
     }
@@ -42,7 +37,7 @@ export class ConsoleService {
 
   /** Returns whether the Positron API is available. */
   isAvailable(): boolean {
-    return this.positron !== null;
+    return this.adapter !== null;
   }
 
   /** Returns a human-readable status message. */
@@ -50,50 +45,29 @@ export class ConsoleService {
     return this.statusMessage;
   }
 
-  /** Ensure Positron API is available, throw descriptive error if not. */
-  private requireApi(): PositronApi {
-    if (!this.positron) {
+  /** Ensure the adapter is available, throw descriptive error if not. */
+  private requireAdapter(): PositronAdapter {
+    if (!this.adapter) {
       throw new Error(
         "Positron API is not available. This tool requires Positron IDE with a running runtime session."
       );
     }
-    return this.positron;
+    return this.adapter;
   }
 
   /**
-   * Extract session metadata into a ConsoleInfo shape.
-   * The Positron API's LanguageRuntimeSession type is underspecified in the
-   * @posit-dev/positron SDK — the runtime actually returns objects with
-   * metadata.sessionId, metadata.languageId, metadata.runtimeName, and
-   * metadata.runtimeId. We access these fields through dynamic casts.
+   * Build a ConsoleInfo from a session object using the adapter's static helpers.
    */
   private sessionToConsoleInfo(s: unknown, index: number, fgSessionId?: string): ConsoleInfo {
-    const meta = (s as { metadata?: Record<string, unknown> }).metadata ?? {};
+    const meta = PositronAdapter.getSessionMetadata(s);
     return {
       index,
-      sessionId: String(meta.sessionId ?? ""),
-      languageId: String(meta.languageId ?? ""),
-      runtimeName: String(meta.runtimeName ?? ""),
-      runtimeId: String(meta.runtimeId ?? ""),
-      isForeground: String(meta.sessionId ?? "") === fgSessionId,
+      sessionId: meta.sessionId,
+      languageId: meta.languageId,
+      runtimeName: meta.runtimeName,
+      runtimeId: meta.runtimeId,
+      isForeground: meta.sessionId === fgSessionId,
     };
-  }
-
-  /**
-   * Get a session's languageId from its metadata (dynamic cast because SDK
-   * types are incomplete).
-   */
-  private getSessionLanguageId(s: unknown): string {
-    const meta = (s as { metadata?: Record<string, unknown> }).metadata ?? {};
-    return String(meta.languageId ?? "");
-  }
-
-  /**
-   * Get a session's sessionId from its metadata.
-   */
-  private getSessionId(s: unknown): string {
-    const meta = (s as { metadata?: Record<string, unknown> }).metadata ?? {};
-    return String(meta.sessionId ?? "");
   }
 
   // ─── Console / Session tools ────────────────────────────────────
@@ -102,10 +76,10 @@ export class ConsoleService {
    * List all active Positron runtime sessions (consoles).
    */
   async listConsoles(): Promise<string> {
-    const api = this.requireApi();
-    const sessions: unknown[] = await api.runtime.getActiveSessions();
-    const foreground: unknown = await api.runtime.getForegroundSession();
-    const fgSessionId = foreground ? this.getSessionId(foreground) : undefined;
+    const adapter = this.requireAdapter();
+    const sessions = await adapter.getActiveSessions();
+    const foreground = await adapter.getForegroundSession();
+    const fgSessionId = foreground ? PositronAdapter.getSessionId(foreground) : undefined;
 
     const consoles: ConsoleInfo[] = sessions.map((s, i) =>
       this.sessionToConsoleInfo(s, i, fgSessionId)
@@ -118,8 +92,8 @@ export class ConsoleService {
    * Get the currently active (foreground) Console session.
    */
   async getActiveConsole(): Promise<string> {
-    const api = this.requireApi();
-    const session: unknown = await api.runtime.getForegroundSession();
+    const adapter = this.requireAdapter();
+    const session = await adapter.getForegroundSession();
 
     if (!session) {
       return JSON.stringify(
@@ -129,13 +103,12 @@ export class ConsoleService {
       );
     }
 
+    const meta = PositronAdapter.getSessionMetadata(session);
     const consoleInfo: ConsoleInfo = {
-      sessionId: this.getSessionId(session),
-      languageId: this.getSessionLanguageId(session),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      runtimeName: String((session as any).metadata?.runtimeName ?? ""),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      runtimeId: String((session as any).metadata?.runtimeId ?? ""),
+      sessionId: meta.sessionId,
+      languageId: meta.languageId,
+      runtimeName: meta.runtimeName,
+      runtimeId: meta.runtimeId,
       isForeground: true,
       index: -1, // unknown index from this API
     };
@@ -149,15 +122,15 @@ export class ConsoleService {
   async focusConsole(
     args: ToolArgsMap["focus_console"]
   ): Promise<string> {
-    const api = this.requireApi();
+    const adapter = this.requireAdapter();
     const sessionId = args.sessionId;
     const index = args.index;
 
     if (sessionId) {
       // Look up the session to get its languageId — required for executeCode
-      const sessions: unknown[] = await api.runtime.getActiveSessions();
+      const sessions = await adapter.getActiveSessions();
       const found = sessions.find(
-        (s) => this.getSessionId(s) === sessionId
+        (s) => PositronAdapter.getSessionId(s) === sessionId
       );
       if (!found) {
         return JSON.stringify(
@@ -170,21 +143,19 @@ export class ConsoleService {
           2
         );
       }
-      const langId = this.getSessionLanguageId(found);
+      const langId = PositronAdapter.getSessionLanguageId(found);
       try {
-        // Cast to any for the mode parameter (SDK types differ from runtime)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (api.runtime.executeCode as any)(
-          langId,
-          "", // no-op — empty code
-          true, // focus
-          false,
+        await adapter.executeCode({
+          languageId: langId,
+          code: "", // no-op — empty code
+          focus: true,
+          allowIncomplete: false,
           sessionId,
-          {
+          observer: {
             onStarted: () => { /* noop */ },
             onFinished: () => { /* noop */ },
-          }
-        );
+          },
+        });
         return JSON.stringify(
           {
             focused: true,
@@ -210,7 +181,7 @@ export class ConsoleService {
     }
 
     if (index !== undefined) {
-      const sessions: unknown[] = await api.runtime.getActiveSessions();
+      const sessions = await adapter.getActiveSessions();
       if (index < 0 || index >= sessions.length) {
         return JSON.stringify(
           {
@@ -222,7 +193,7 @@ export class ConsoleService {
           2
         );
       }
-      const targetSessionId = this.getSessionId(sessions[index]);
+      const targetSessionId = PositronAdapter.getSessionId(sessions[index]);
       return this.focusConsole({ sessionId: targetSessionId });
     }
 
@@ -242,7 +213,7 @@ export class ConsoleService {
   async executeCode(
     args: ToolArgsMap["execute_code"]
   ): Promise<string> {
-    const api = this.requireApi();
+    const adapter = this.requireAdapter();
     const code = args.code;
     if (!code || code.trim().length === 0) {
       return JSON.stringify({ error: "No code provided" }, null, 2);
@@ -253,7 +224,7 @@ export class ConsoleService {
     // Resolve language: prefer explicit, fall back to foreground session
     let resolvedLanguage = languageId;
     if (!resolvedLanguage) {
-      const fg: unknown = await api.runtime.getForegroundSession();
+      const fg = await adapter.getForegroundSession();
       if (!fg) {
         return JSON.stringify(
           {
@@ -264,7 +235,7 @@ export class ConsoleService {
           2
         );
       }
-      resolvedLanguage = this.getSessionLanguageId(fg);
+      resolvedLanguage = PositronAdapter.getSessionLanguageId(fg);
     }
 
     const sessionId = args.sessionId;
@@ -336,16 +307,14 @@ export class ConsoleService {
     };
 
     try {
-      // Cast to any for the mode parameter (SDK types differ from runtime)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const executionPromise = (api.runtime.executeCode as any)(
-        resolvedLanguage,
+      const executionPromise = adapter.executeCode({
+        languageId: resolvedLanguage,
         code,
-        true, // focus — bring the console to the foreground
+        focus: true, // bring the console to the foreground
         allowIncomplete,
-        sessionId || undefined,
-        observer
-      );
+        sessionId: sessionId || undefined,
+        observer,
+      });
 
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
@@ -400,12 +369,12 @@ export class ConsoleService {
   async getSessionVariables(
     args: ToolArgsMap["get_session_variables"]
   ): Promise<string> {
-    const api = this.requireApi();
+    const adapter = this.requireAdapter();
     const sessionId = args.sessionId;
 
     let targetSessionId = sessionId;
     if (!targetSessionId) {
-      const fg: unknown = await api.runtime.getForegroundSession();
+      const fg = await adapter.getForegroundSession();
       if (!fg) {
         return JSON.stringify(
           { error: "No active console session" },
@@ -413,15 +382,24 @@ export class ConsoleService {
           2
         );
       }
-      targetSessionId = this.getSessionId(fg);
+      targetSessionId = PositronAdapter.getSessionId(fg);
     }
 
-    const variables = await api.runtime.getSessionVariables(targetSessionId);
-    return JSON.stringify(
-      { sessionId: targetSessionId, variables },
-      null,
-      2
-    );
+    try {
+      const variables = await adapter.getSessionVariables(targetSessionId);
+      return JSON.stringify(
+        { sessionId: targetSessionId, variables },
+        null,
+        2
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return JSON.stringify(
+        { sessionId: targetSessionId, error: message },
+        null,
+        2
+      );
+    }
   }
 
   /**
@@ -430,7 +408,7 @@ export class ConsoleService {
   async getPreferredRuntime(
     args: ToolArgsMap["get_preferred_runtime"]
   ): Promise<string> {
-    const api = this.requireApi();
+    const adapter = this.requireAdapter();
     const languageId = args.languageId;
     if (!languageId) {
       return JSON.stringify(
@@ -440,14 +418,7 @@ export class ConsoleService {
       );
     }
 
-    const runtime = await api.runtime.getPreferredRuntime(languageId);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rt = runtime as any;
-    const info = {
-      runtimeName: rt.runtimeName as string | undefined,
-      runtimeId: rt.runtimeId as string | undefined,
-      languageId,
-    };
+    const info = await adapter.getPreferredRuntime(languageId);
     return JSON.stringify(info, null, 2);
   }
 
@@ -457,7 +428,7 @@ export class ConsoleService {
   async createConnection(
     args: ToolArgsMap["create_connection"]
   ): Promise<string> {
-    const api = this.requireApi();
+    const adapter = this.requireAdapter();
     const driverId = args.driverId;
     const inputs = args.inputs;
     const name = args.name;
@@ -468,10 +439,7 @@ export class ConsoleService {
     }
 
     try {
-      // The SDK type may not include languageId on registerConnectionDriver args,
-      // but the runtime accepts it. Cast through unknown to provide it.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (api.connections.registerConnectionDriver as any)({
+      await adapter.registerConnectionDriver({
         driverId,
         languageId: languageId || "python",
         inputs: inputs || [],
@@ -499,7 +467,7 @@ export class ConsoleService {
    * Get the current Console panel width (in characters).
    */
   getConsoleWidth(): string {
-    this.requireApi();
+    this.requireAdapter();
     return JSON.stringify({ width: this.consoleWidth }, null, 2);
   }
 
@@ -521,7 +489,7 @@ export class ConsoleService {
   async setEnvironmentVariable(
     args: ToolArgsMap["set_environment_variable"]
   ): Promise<string> {
-    const api = this.requireApi();
+    const adapter = this.requireAdapter();
     const name = args.name;
     const value = args.value;
     const action = args.action ?? "set";
@@ -537,7 +505,7 @@ export class ConsoleService {
     // Extension ID used as the key in Positron's contributions map
     const EXTENSION_ID = "positron-console-mcp";
 
-    const contributions = await api.environment.getEnvironmentContributions();
+    const contributions = await adapter.getEnvironmentContributions();
 
     if (action === "unset") {
       // Remove the variable entry for this extension
@@ -560,21 +528,13 @@ export class ConsoleService {
 
     // VS Code EnvironmentVariableMutatorType enum values:
     //   Replace = 1, Append = 2, Prepend = 3
-    // We use hardcoded constants instead of require("vscode") to keep the
-    // code testable in environments where the vscode module is not available.
-    const ENV_MUTATOR = {
-      Replace: 1,
-      Append: 2,
-      Prepend: 3,
-    } as const;
-
-    const mutatorMap: Record<string, number> = {
-      set: ENV_MUTATOR.Replace,
-      append: ENV_MUTATOR.Append,
-      prepend: ENV_MUTATOR.Prepend,
+    const mutatorMap: Record<string, EnvMutatorTypeValue> = {
+      set: EnvMutatorType.Replace,
+      append: EnvMutatorType.Append,
+      prepend: EnvMutatorType.Prepend,
     };
 
-    const mutatorType = mutatorMap[action] ?? ENV_MUTATOR.Replace;
+    const mutatorType = mutatorMap[action] ?? EnvMutatorType.Replace;
     const varAction = {
       action: mutatorType,
       name,
@@ -613,9 +573,9 @@ export class ConsoleService {
    * Get the currently active editor file path and text selection from Positron.
    */
   async getEditorContext(): Promise<string> {
-    const api = this.requireApi();
+    const adapter = this.requireAdapter();
     try {
-      const ctx = await api.methods.lastActiveEditorContext();
+      const ctx = await adapter.lastActiveEditorContext();
       if (!ctx) {
         return JSON.stringify(
           { editor: null, message: "No active editor" },
@@ -623,20 +583,16 @@ export class ConsoleService {
           2
         );
       }
-      const ctxAny = ctx as {
-        document?: { path?: string; languageId?: string };
-        selection?: unknown;
-      };
       const editorCtx = {
-        document: ctxAny.document
+        document: ctx.document
           ? {
-              path: ctxAny.document.path,
-              languageId: ctxAny.document.languageId,
+              path: ctx.document.path,
+              languageId: ctx.document.languageId,
             }
           : undefined,
         selection:
-          ctxAny.selection !== undefined
-            ? String(ctxAny.selection)
+          ctx.selection !== undefined
+            ? String(ctx.selection)
             : undefined,
       };
       return JSON.stringify(editorCtx, null, 2);
@@ -656,15 +612,13 @@ export class ConsoleService {
   async openViewer(
     args: ToolArgsMap["open_viewer"]
   ): Promise<string> {
-    const api = this.requireApi();
+    const adapter = this.requireAdapter();
     const url = args.url;
     if (!url) {
       return JSON.stringify({ error: "URL is required" }, null, 2);
     }
 
-    // previewUrl expects a Uri — cast to any to pass string-compatible argument
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (api.window.previewUrl as any)(url);
+    await adapter.previewUrl(url);
     return JSON.stringify({ opened: url }, null, 2);
   }
 
@@ -672,9 +626,9 @@ export class ConsoleService {
    * Get current plot rendering dimensions.
    */
   async getPlotSettings(): Promise<string> {
-    const api = this.requireApi();
+    const adapter = this.requireAdapter();
     try {
-      const settings = await api.window.getPlotsRenderSettings();
+      const settings = await adapter.getPlotsRenderSettings();
       return JSON.stringify(settings, null, 2);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -689,6 +643,8 @@ export class ConsoleService {
   /**
    * Dispatch a tool call by name to the appropriate method.
    * Returns MCP-compliant content response.
+   *
+   * Uses a typed dispatch map to localize ToolArgsMap casts to one place per tool.
    */
   async dispatch(
     toolName: string,
@@ -697,69 +653,35 @@ export class ConsoleService {
     content: { type: "text"; text: string }[];
     isError?: boolean;
   }> {
+    // Each entry wraps the ToolArgsMap cast in one place — the rest of the
+    // method body is type-safe through Record<string, unknown> args.
+    const dispatchMap: Record<string, (a: Record<string, unknown>) => Promise<string> | string> = {
+      list_consoles: () => this.listConsoles(),
+      get_active_console: () => this.getActiveConsole(),
+      focus_console: (a) => this.focusConsole(a as unknown as ToolArgsMap["focus_console"]),
+      execute_code: (a) => this.executeCode(a as unknown as ToolArgsMap["execute_code"]),
+      get_session_variables: (a) => this.getSessionVariables(a as unknown as ToolArgsMap["get_session_variables"]),
+      get_preferred_runtime: (a) => this.getPreferredRuntime(a as unknown as ToolArgsMap["get_preferred_runtime"]),
+      create_connection: (a) => this.createConnection(a as unknown as ToolArgsMap["create_connection"]),
+      get_console_width: () => this.getConsoleWidth(),
+      set_environment_variable: (a) => this.setEnvironmentVariable(a as unknown as ToolArgsMap["set_environment_variable"]),
+      get_editor_context: () => this.getEditorContext(),
+      open_viewer: (a) => this.openViewer(a as unknown as ToolArgsMap["open_viewer"]),
+      get_plot_settings: () => this.getPlotSettings(),
+    };
+
+    const handler = dispatchMap[toolName];
+    if (!handler) {
+      return {
+        content: [
+          { type: "text", text: `Unknown tool: ${toolName}` },
+        ],
+        isError: true,
+      };
+    }
+
     try {
-      let result: string;
-
-      switch (toolName) {
-        case "list_consoles":
-          result = await this.listConsoles();
-          break;
-        case "get_active_console":
-          result = await this.getActiveConsole();
-          break;
-        case "focus_console":
-          result = await this.focusConsole(
-            args as unknown as ToolArgsMap["focus_console"]
-          );
-          break;
-        case "execute_code":
-          result = await this.executeCode(
-            args as unknown as ToolArgsMap["execute_code"]
-          );
-          break;
-        case "get_session_variables":
-          result = await this.getSessionVariables(
-            args as unknown as ToolArgsMap["get_session_variables"]
-          );
-          break;
-        case "get_preferred_runtime":
-          result = await this.getPreferredRuntime(
-            args as unknown as ToolArgsMap["get_preferred_runtime"]
-          );
-          break;
-        case "create_connection":
-          result = await this.createConnection(
-            args as unknown as ToolArgsMap["create_connection"]
-          );
-          break;
-        case "get_console_width":
-          result = this.getConsoleWidth();
-          break;
-        case "set_environment_variable":
-          result = await this.setEnvironmentVariable(
-            args as unknown as ToolArgsMap["set_environment_variable"]
-          );
-          break;
-        case "get_editor_context":
-          result = await this.getEditorContext();
-          break;
-        case "open_viewer":
-          result = await this.openViewer(
-            args as unknown as ToolArgsMap["open_viewer"]
-          );
-          break;
-        case "get_plot_settings":
-          result = await this.getPlotSettings();
-          break;
-        default:
-          return {
-            content: [
-              { type: "text", text: `Unknown tool: ${toolName}` },
-            ],
-            isError: true,
-          };
-      }
-
+      const result = await handler(args);
       return { content: [{ type: "text", text: result }] };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
