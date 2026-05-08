@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.4] - 2026-05-09
+
+### Fixed
+
+- 🔧 Default port changed from `6071` to `0` (OS-assigned random free port) — eliminates all `EADDRINUSE` port conflicts
+- 💥 Explicit port now fails fast with descriptive error instead of silently retrying to a different port
+
+### Changed
+
+- 📖 README: fixed all command palette names (`Console MCP:` prefix), added Installation section with auto-registration, added Commands table
+- 🧹 Removed fragile port auto-retry loop in favor of OS-assigned port-0 + fail-fast for explicit ports
+
 ## [1.0.3] - 2026-05-08
 
 ### Added
