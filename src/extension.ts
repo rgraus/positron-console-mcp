@@ -27,22 +27,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // Determine port from configuration
   const config = vscode.workspace.getConfiguration("positronConsoleMcp");
-  const port = config.get<number>("port") ?? 6071;
+  const port = config.get<number>("port") ?? 0;
 
   // Create and start the MCP server
   mcpServer = new McpConsoleServer(port);
   try {
     const actualPort = await mcpServer.start();
     console.log(`[PositronConsoleMCP] Server listening on port ${actualPort}`);
-
-    // Update configuration if the port changed (port auto-retry)
-    if (actualPort !== port) {
-      try {
-        await config.update("port", actualPort, vscode.ConfigurationTarget.Global);
-      } catch {
-        // Non-critical — config update can fail if workspace is not trusted
-      }
-    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     vscode.window.showErrorMessage(
@@ -54,7 +45,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // ── MCP server definition provider ─────────────────────────────
   // Registers this server so it automatically appears in
-  // Settings → Copilot → MCP Servers → Installed (with its logo).
+  // Extensions → MCP SERVERS → Installed (with its logo).
   context.subscriptions.push(
     vscode.lm.registerMcpServerDefinitionProvider(
       "positron-console-mcp",

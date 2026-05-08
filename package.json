@@ -49,10 +49,10 @@
       "properties": {
         "positronConsoleMcp.port": {
           "type": "number",
-          "default": 6071,
-          "minimum": 1024,
+          "default": 0,
+          "minimum": 0,
           "maximum": 65535,
-          "description": "Port for the MCP server (default: 6071)"
+          "description": "Port for the MCP server (0 = OS-assigned random port, default)"
         }
       }
     }

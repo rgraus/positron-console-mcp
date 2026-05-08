@@ -189,42 +189,34 @@ describe("McpConsoleServer (unit)", () => {
     expect(status).toBe("Positron API connected");
   });
 
-  // ─── Port auto-retry ───────────────────────────────────────────
-  it("port auto-retry should try next port when first is EADDRINUSE", async () => {
+  // ─── Port conflict behavior ────────────────────────────────────
+  it("should throw descriptive error when explicit port is EADDRINUSE", async () => {
     const net = await import("net");
 
-    // Create two servers: start a throwaway server on port 7070,
-    // so our MCP server (port 7070) must retry to 7071
     const blockPort = 7070;
     const blocker = net.createServer();
     await new Promise<void>((resolve) => blocker.listen(blockPort, "127.0.0.1", resolve));
 
-    const retryServer = new McpConsoleServer(blockPort);
+    const conflictServer = new McpConsoleServer(blockPort);
     try {
-      const assignedPort = await retryServer.start();
-      // Should have skipped 7070 and landed on 7071
-      expect(assignedPort).toBeGreaterThanOrEqual(blockPort + 1);
-      expect(assignedPort).toBeLessThanOrEqual(blockPort + 9);
-      expect(retryServer.isRunning()).toBe(true);
+      await expect(conflictServer.start()).rejects.toThrow(
+        `Port ${blockPort} is already in use`
+      );
     } finally {
-      await retryServer.stop();
       await new Promise<void>((resolve) => blocker.close(() => resolve()));
     }
   });
 
-  // Also test that starting a second instance of the same server
-  // (on a different McpConsoleServer object) picks a different port.
-  it("two server instances should get different ports when started on same base", async () => {
-    const serverA = new McpConsoleServer(7080);
-    const serverB = new McpConsoleServer(7080);
+  it("port 0 should get an OS-assigned free port and two servers should never collide", async () => {
+    const serverA = new McpConsoleServer(0);
+    const serverB = new McpConsoleServer(0);
 
     try {
       const portA = await serverA.start();
       const portB = await serverB.start();
 
-      // Second server should skip the first's port and get the next
-      expect(portB).toBeGreaterThanOrEqual(portA + 1);
-      expect(portB).toBeLessThanOrEqual(7080 + 9);
+      expect(portA).toBeGreaterThan(0);
+      expect(portB).toBeGreaterThan(0);
       expect(portA).not.toBe(portB);
     } finally {
       await serverA.stop();

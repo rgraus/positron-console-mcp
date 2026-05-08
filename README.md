@@ -17,6 +17,7 @@ Modeled after the proven architecture of [terminal-automatization](https://githu
 - **Editor integration** — get active editor context and selections
 - **Viewer pane** — open URLs/HTML in the Positron Viewer
 - **Graceful degradation** — works in standard VS Code with clear error messages
+- **Auto-registration** — appears in **Extensions → MCP SERVERS → Installed** with logo
 
 ## Requirements
 
@@ -161,9 +162,17 @@ Get current plot rendering dimensions.
 | **Arguments** | None                                                          |
 | **Returns**   | `{ width: number, height: number, ... } \| { error: string }` |
 
-## MCP Client Configuration
+## Installation
 
-Add to your `.vscode/mcp.json` or user settings:
+The MCP server auto-registers when the extension activates — no manual configuration needed. After installing from Open VSX, it appears under:
+
+> **Extensions → MCP SERVERS → Installed**
+
+The logo from `logo.png` is shown in the panel tile.
+
+### Manual configuration (fallback)
+
+If the extension doesn't auto-register in your VS Code version, add this to `.vscode/mcp.json`:
 
 ```json
 {
@@ -177,13 +186,15 @@ Add to your `.vscode/mcp.json` or user settings:
 }
 ```
 
-Or use the **"Positron Console MCP: Copy MCP Configuration"** command from the Command Palette.
+Or run **Console MCP: Copy MCP Configuration** from the Command Palette.
 
 ## Configuration
 
-| Setting                   | Default | Description                              |
-| ------------------------- | ------- | ---------------------------------------- |
-| `positronConsoleMcp.port` | `6071`  | MCP server port (auto-retries 6071–6079) |
+| Setting                   | Default | Description                                                                              |
+| ------------------------- | ------- | ---------------------------------------------------------------------------------------- |
+| `positronConsoleMcp.port` | `0`     | MCP server port. `0` = OS-assigned random free port (recommended — avoids all conflicts) |
+
+When set to `0`, the OS picks a free port and `McpHttpServerDefinition` auto-discovers it — no manual setup needed. Set an explicit port only if you're using the manual `.vscode/mcp.json` fallback.
 
 ## Architecture
 
@@ -198,6 +209,15 @@ This MCP server uses the **Streamable HTTP** transport (spec 2025-03-26) in **st
 ## Security
 
 The MCP server listens only on `localhost` and validates the `Host` header. The `execute_code` tool runs arbitrary code in your Positron sessions — same trust model as `run_command` in AI coding assistants. Only connect trusted MCP clients.
+
+## Commands
+
+| Command                                  | Description                                                |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| **Console MCP: Show Status**             | Display server port, MCP endpoint, and Positron API status |
+| **Console MCP: Copy MCP Configuration**  | Copy `.vscode/mcp.json` snippet to clipboard               |
+| **Console MCP: Add to .vscode/mcp.json** | Auto-add the server to the workspace `mcp.json` file       |
+| **Console MCP: Restart Server**          | Stop and restart the MCP HTTP server                       |
 
 ## Development
 

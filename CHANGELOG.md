@@ -7,21 +7,35 @@
 - 🖥️ MCP server auto-registration via `registerMcpServerDefinitionProvider` — appears under **Extensions → MCP SERVERS → Installed** with logo
 - 🏷️ `mcpServerDefinitionProviders` contribution point in `package.json`
 - 📥 Open VSX install badge in README
-- 📦 GitHub Releases now named `positron-console-mcp v*.*.*`
 
 ### Changed
 
+- 📦 GitHub Releases now named `positron-console-mcp v*.*.*`
 - 🔒 CORS restricted from `*` to localhost origins only
-- 🔄 Version extracted into shared `src/version.ts` module
-- 🧹 Typed `PositronAdapter` eliminates all `as any` casts in `console-service.ts`
-- 📇 MCP server name aligned to `positron-console-mcp` across all files
+- 🔄 Version extracted into shared `src/version.ts` module — server and health endpoint now report correct version
+- 🧹 Typed `PositronAdapter` eliminates all `as any` / `@typescript-eslint/no-explicit-any` casts in `console-service.ts`
+- 📇 MCP server name aligned to `positron-console-mcp` across all files, commands, and tests
+- 🗺️ Switch-case dispatch replaced with typed dispatch map — localized `ToolArgsMap` casts
+- 🧪 87 tests across 4 suites, coverage: 93.7% stmts / 84.6% branches / 95.8% funcs
+
+## [1.0.2] - 2026-05-08
+
+### Fixed
+
+- 🔧 GitHub Release workflow permissions added (`contents: write`) to allow attaching VSIX artifacts
+
+## [1.0.1] - 2026-05-08
+
+### Added
+
+- 🎨 `"icon": "logo.png"` field in `package.json` so Open VSX displays the extension logo
 
 ## [1.0.0] - 2026-05-08
 
 ### Production Release
 
-- 🎯 **1.0.0 release** — all core features stable, 100 tests passing, MCP protocol compliant
-- 🧪 100 tests across 4 test suites (unit + HTTP integration)
+- 🎯 **1.0.0 release** — all core features stable, 87 tests passing, MCP protocol compliant
+- 🧪 87 tests across 4 test suites (unit + HTTP integration)
 - 🔒 Stateless Streamable HTTP mode with localhost-only binding
 - ⚡ Port auto-retry on EADDRINUSE (base through +9)
 - 🛡️ Rate limiting (120 req/min/IP) with automatic cleanup
@@ -50,6 +64,6 @@
 - 🔧 Environment variable management
 - 🛑 Graceful degradation in standard VS Code (no Positron API)
 - 📊 Status bar item with server status and port info
-- ⚙️ Commands: Show Status, Copy MCP Config, Add to mcp.json, Restart
+- ⚙️ Commands: Console MCP: Show Status, Copy MCP Configuration, Add to .vscode/mcp.json, Restart Server
 - 🔒 Localhost-only server with Host header validation
 - 🧪 33 unit tests with full Positron API mocking

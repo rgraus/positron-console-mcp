@@ -200,7 +200,11 @@ export class McpConsoleServer {
 
   /**
    * Start the HTTP server on the configured port.
-   * Tries ports from `this.port` through `this.port + 9` if the initial port is busy.
+   *
+   * When port is 0 (default), the OS assigns a random free port — this
+   * eliminates port conflicts entirely and is the recommended configuration.
+   * When an explicit port is set and it's in use, the server fails fast with
+   * a clear error message instead of silently retrying.
    */
   async start(): Promise<number> {
     if (this.app) {
@@ -262,39 +266,36 @@ export class McpConsoleServer {
       res.send(LOGO_SVG);
     });
 
-    // Try ports from this.port through this.port + 9
-    let assignedPort = this.port;
-    const maxPort = this.port + 9;
+    // Bind to the configured port (0 = OS-assigned random free port)
+    const portToTry = this.port;
 
-    while (assignedPort <= maxPort) {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          this.httpServer = this.app!.listen(assignedPort, "127.0.0.1", () => {
-            resolve();
-          });
-          this.httpServer!.on("error", (err: NodeJS.ErrnoException) => {
-            if (err.code === "EADDRINUSE") {
-              reject(new Error("EADDRINUSE"));
-            } else {
-              reject(err);
-            }
-          });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.httpServer = this.app!.listen(portToTry, "127.0.0.1", () => {
+          resolve();
         });
-        this.port = assignedPort;
-        console.log(`[PositronConsoleMCP] MCP server started on http://127.0.0.1:${this.port}/mcp`);
-        return this.port;
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (message === "EADDRINUSE") {
-          console.log(`[PositronConsoleMCP] Port ${assignedPort} in use, trying ${assignedPort + 1}...`);
-          assignedPort++;
-        } else {
-          throw err;
-        }
-      }
-    }
+        this.httpServer!.on("error", (err: NodeJS.ErrnoException) => {
+          reject(err);
+        });
+      });
 
-    throw new Error(`Could not find an available port in range ${this.port}–${maxPort}`);
+      // Read the actual port — when portToTry was 0, this is OS-assigned
+      const addr = this.httpServer!.address();
+      this.port = typeof addr === "object" && addr ? addr.port : portToTry;
+
+      console.log(`[PositronConsoleMCP] MCP server started on http://127.0.0.1:${this.port}/mcp`);
+      return this.port;
+    } catch (err: unknown) {
+      const nodeErr = err as NodeJS.ErrnoException;
+      if (nodeErr.code === "EADDRINUSE") {
+        throw new Error(
+          `Port ${portToTry} is already in use. ` +
+            `Set positronConsoleMcp.port to 0 for an OS-assigned free port, ` +
+            `or choose a different port in VS Code Settings.`
+        );
+      }
+      throw err;
+    }
   }
 
   /**
