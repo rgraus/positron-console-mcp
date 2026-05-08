@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.3] - 2026-05-08
+
+### Added
+
+- 🖥️ MCP server auto-registration via `registerMcpServerDefinitionProvider` — appears under **Extensions → MCP SERVERS → Installed** with logo
+- 🏷️ `mcpServerDefinitionProviders` contribution point in `package.json`
+- 📥 Open VSX install badge in README
+- 📦 GitHub Releases now named `positron-console-mcp v*.*.*`
+
+### Changed
+
+- 🔒 CORS restricted from `*` to localhost origins only
+- 🔄 Version extracted into shared `src/version.ts` module
+- 🧹 Typed `PositronAdapter` eliminates all `as any` casts in `console-service.ts`
+- 📇 MCP server name aligned to `positron-console-mcp` across all files
+
 ## [1.0.0] - 2026-05-08
 
 ### Production Release

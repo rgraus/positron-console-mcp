@@ -74,5 +74,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: "positron-console-mcp ${{ github.ref_name }}"
           files: "*.vsix"
           generate_release_notes: true

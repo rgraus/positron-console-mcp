@@ -52,6 +52,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     return;
   }
 
+  // ── MCP server definition provider ─────────────────────────────
+  // Registers this server so it automatically appears in
+  // Settings → Copilot → MCP Servers → Installed (with its logo).
+  context.subscriptions.push(
+    vscode.lm.registerMcpServerDefinitionProvider(
+      "positron-console-mcp",
+      {
+        provideMcpServerDefinitions: async () => {
+          const port = mcpServer!.getPort();
+          return [
+            new vscode.McpHttpServerDefinition(
+              "Positron Console MCP",
+              vscode.Uri.parse(`http://localhost:${port}/mcp`),
+              {},
+              EXTENSION_VERSION
+            ),
+          ];
+        },
+      }
+    )
+  );
+
   // ── Status bar item ────────────────────────────────────────────
   statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,

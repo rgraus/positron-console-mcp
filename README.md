@@ -1,5 +1,7 @@
 # Positron Console MCP <img src="logo.png" alt="Extension image" width="140" align="right" style="margin: 0 1em 0 1em"/>
 
+[![Install on Open VSX](https://img.shields.io/static/v1?label=Open%20VSX&message=Install&color=A60EE5&style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xLjUgNC41aDIxdjE1aC0yMXoiLz48L3N2Zz4=)](https://open-vsx.org/extension/davidrsch/positron-console-mcp)
+
 MCP (Model Context Protocol) server that gives AI coding assistants first-class access to **Positron Console** — the interactive coding environment used by [Positron IDE](https://github.com/posit-dev/positron) for R, Python, and data science workflows.
 
 Modeled after the proven architecture of [terminal-automatization](https://github.com/davidrsch/vscode_terminal_automatization), this extension replaces raw terminal automation with structured runtime session management, code execution with observer-pattern output capture, session variable introspection, and more.

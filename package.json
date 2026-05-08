@@ -2,7 +2,7 @@
   "name": "positron-console-mcp",
   "displayName": "Positron Console MCP",
   "description": "MCP server giving AI assistants control over Positron Consoles — run code, manage sessions, inspect variables, capture structured output",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "davidrsch",
   "repository": "https://github.com/davidrsch/positron-console-mcp",
   "icon": "logo.png",
@@ -36,6 +36,12 @@
         "command": "positronConsoleMcp.restart",
         "title": "Restart Server",
         "category": "Console MCP"
+      }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "positron-console-mcp",
+        "label": "Positron Console MCP"
       }
     ],
     "configuration": {
