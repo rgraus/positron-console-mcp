@@ -108,7 +108,7 @@ tag (e.g., `v1.0.0`) is pushed. The `build-vsix` job packages the extension with
 (https://github.com/eclipse-openvsx/openvsx/tree/master/cli) to publish the
 pre-built VSIX artifact (`ovsx publish *.vsix --skip-duplicate`).
 
-Requires the `OPEN_VSX_TOKEN` repository secret (generate from
+Requires the `OVSX_PAT` repository secret (generate from
 [open-vsx.org](https://open-vsx.org/user-settings/tokens)).
 
 ## Commit Guidelines
