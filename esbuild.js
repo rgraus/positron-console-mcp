@@ -11,7 +11,7 @@ const config = {
   platform: "node",
   target: "node22",
   format: "cjs",
-  external: ["vscode", "@posit-dev/positron"],
+  external: ["vscode"],
   sourcemap: !production,
   minify: production,
   treeShaking: true,
